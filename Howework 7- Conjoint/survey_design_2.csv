@@ -1,0 +1,19 @@
+﻿Screen,Cell,Price ,Battery,OS
+7,Y,300,12,Windows
+7,Y,100,8,Windows
+10,Y,500,12,Android
+7,Y,300,4,Android
+7,N,300,8,iOS
+10,N,300,12,Windows
+7,N,500,12,Android
+10,N,300,8,Android
+7,N,500,4,Windows
+10,Y,100,12,iOS
+10,Y,300,4,iOS
+7,N,100,12,iOS
+10,Y,500,8,Windows
+10,N,500,4,iOS
+10,N,100,4,Windows
+10,N,100,8,Android
+7,Y,500,8,iOS
+7,Y,100,4,Android

@@ -1,0 +1,210 @@
+---
+title: 'Homework #5: Customer Retention'
+author: "RAVEENA KAMAL"
+format: pdf
+output: pdf_document
+editor: visual
+---
+
+## Grading Note
+
+This HW is worth 16 points in total. I've made notes in this document where those points were earned.
+
+## Objectives & setup
+
+-   Homework tasks:
+    -   Estimate a model of customer churn from a cell phone carrier -- Data for the homework is contained in `cellphone_churn.csv`, 1 observation (row) per customer -- Customers in the dataset are subscribers to the carrier's unlimited talk plan -- Unlimited plan subscribers have a 1 year contract -- We observe some customer demographics, service usage metrics, and whether the customer cancelled the contract at the end of the term (churn=1) or renewed the service for another year (churn = 0) -- For an active customer, the carrier makes \$40 per month in profit (\$480 per year)
+    -   Evaluate the profitability of various retention efforts
+
+The variables in the cellphone_churn.csv are:
+
+| Variable            | Description                                                       |
+|--------------------|----------------------------------------------------|
+| id                  | Identifier for customer                                           |
+| male                | (=1 if customer is male)                                          |
+| age                 | Customer age (years)                                              |
+| usage               | Average number of minutes of call time per month                  |
+| dropped_calls       | Total number of dropped calls (year)                              |
+| callcenter_waittime | Total number of minutes spent on hold for customer service (year) |
+
+## Read in the data
+
+To begin, load the customer data into a dataframe named `DF`. Use `head()` and `summary()` to visualize the first few rows and to summarize the variables. **(2 points)**
+
+```{r}
+DF<-read.csv("/Users/raveena/Desktop/Classroom - R/Marketing Analytics/data/cellphone_churn.csv")
+head(DF)
+summary(DF)
+
+mean(DF$churn)
+```
+
+**What is the churn rate among the sampled customers? (1 point)**
+
+**Ans : 11%**
+
+## Question 2
+
+Estimate a model of churn (DV = `churn`) with `male`, `age`, `usage`, `dropped_calls` and `callcenter_waittime` as predictor variables. **(1 point)**
+
+What is the coefficient of `age`, and how do you interpret it? **(1 point)**
+
+```{r}
+churn_model <- glm(churn ~ male + age + usage + dropped_calls + callcenter_waittime, data=DF, family= 'binomial')
+summary(churn_model)
+```
+
+**Answer here - Coefficient of age is -0.1011 which means in general, as age increases fewer people churn. In logistic regression it means with one year increase in age the log odds of churning decreases by 0.1011.**
+
+## Question 3
+
+Which of the explanatory variables is the biggest driver of churn (i.e., which variable is responsible for the most variation in predicted churn rates)? **(3 points)**
+
+*Hint: create table of coefficients, delta X, delta prob*
+
+```{r}
+stddev = rep(0,5)
+stddev[1] = 1
+stddev[2] = sd(DF$age)
+stddev[3] = sd(DF$usage)
+stddev[4] = sd(DF$dropped_calls)
+stddev[5] = sd(DF$callcenter_waittime)
+
+summary_coefs <- coef(summary(churn_model))
+coef_values <- summary_coefs[, 1]
+
+
+table <- data.frame(Coefficients = coef_values[-1], Delta_X = stddev)
+table$delta_prob<-table$Coefficients * table$Delta_X
+
+print(table)
+
+
+
+
+```
+
+**Answer here : Age is responsible for highest variation.**
+
+## Question 4
+
+Which of the following statements from our analysis of the drivers of churn is TRUE? **Multiple can be TRUE (1 point)**
+
+1.  In the future, acquiring a higher proportion of older, female customers will lead to lower churn rates
+2.  In the future, acquiring a higher proportion of younger, female customers will lead to lower churn rates
+3.  Reducing call center wait times is the most effective actionable method to reduce churn rates for existing customers.
+
+**Answer here  - 1 & 3**
+
+## Question 5
+
+Calculate the expected CLV of each customer in the sample. For the calculation, assume the following: **(2 points)**
+
+-   annual discount rate = `r` = 0.1
+-   CLV horizon = `horizon` = 5 years (0,1,. . . ,4)
+-   annual per-customer profit, if retained = `profit` = \$480
+-   each customer's retention rate = `RR` = 1 - predicted churn rate
+-   retention rates remain constant over time, so use the `CLV_simple()` function we've developed
+
+```{r}
+predicted_churn_rate <- predict(churn_model, newdata = DF, type = "response")
+profit<-480
+horizon<- 5
+r<-0.1
+RR<- 1- predicted_churn_rate
+
+CLV_simple <- function(profit, retention, r, horizon) {
+  clv = 0 
+  for (t in 0:(horizon-1)) { 
+    clv = clv + profit * (retention/(1+r))^t 
+    }
+  return(clv)
+}
+
+
+CLV_simple(profit = profit,
+           retention = RR,
+           r = r,
+           horizon = horizon)
+
+
+CLVs <- numeric(length(RR))
+for(i in 1:length(RR)) {
+  CLVs[i] <- CLV_simple(retention = RR[i], profit = profit, r = r, horizon = horizon)
+}
+print(CLVs)
+
+
+```
+
+What is the average CLV across customers? **(1 point)**
+
+```{r}
+ avg_CLV<- mean(CLVs)
+ print(avg_CLV)
+```
+
+**Answer here : \$1696.33**
+
+## Question 6
+
+Assume the firm implemented improvements to its network such that `dropped_calls` are reduced by 10%.
+
+What is the average expected increase in CLV as a result of the network improvements? **(2 point)**
+
+*Hint: Use* `predict()` *to generate churn rates assuming* `dropped_calls` *is 10% less than originally observed. Then re-compute CLV values by individual. Finally, compute the difference in average CLV values with network improvements and average CLV values without network improvements.*
+
+```{r}
+DF_new <- DF
+DF_new$dropped_calls <- DF_new$dropped_calls * 0.9
+predicted_churn_rate_new <- predict(churn_model, newdata = DF_new, type = "response")
+
+RR_new <- 1 - predicted_churn_rate_new
+
+
+CLVs_new <- numeric(length(RR_new))
+for(i in 1:length(RR_new)) {
+  CLVs_new[i] <- CLV_simple(retention = RR_new[i], profit = profit, r = r, horizon = horizon)
+}
+print(CLVs_new)
+avg_CLV_new <- mean(CLVs_new)
+average_increase_in_CLV <- avg_CLV_new - avg_CLV
+print(average_increase_in_CLV)
+
+```
+
+**Answer here :**
+
+```         
+3.031439
+```
+
+## Question 7
+
+Assume the firm implemented improvements to its call center such that `callcenter_waittime` is reduced by 10%. What is the average expected increase in CLV as a result of the call center improvements? **(2 point)**
+
+*Hint: Use* `predict()` *to generate churn rates assuming* `callcenter_waittime` *is 10% less than originally observed. Then re-compute CLV values by individual. Finally, compute the difference in average CLV values with call center improvements and average CLV values without call center improvements.*
+
+```{r}
+
+DF_improved <- DF
+DF_improved$callcenter_waittime <- DF_improved$callcenter_waittime * 0.9  
+predicted_churn_rate_improved <- predict(churn_model, newdata = DF_improved, type = "response")
+
+RR_improved <- 1 - predicted_churn_rate_improved
+
+CLVs_improved <- numeric(length(RR_improved))
+for (i in 1:length(RR_improved)) {
+  CLVs_improved[i] <-CLV_simple(retention = RR_improved[i], profit = profit, r = r, horizon = horizon)
+}
+
+
+avg_CLV_improved <- mean(CLVs_improved)
+
+avg_increase_in_CLV <- avg_CLV_improved - avg_CLV
+
+print(avg_increase_in_CLV)
+
+```
+
+**Answer here : 9**

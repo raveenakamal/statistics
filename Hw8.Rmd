@@ -1,0 +1,143 @@
+---
+title: "HW8"
+author: "Raveena Kamal"
+date: "2024-04-17"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+
+Question 1 and Question 2 
+
+```{r}
+DF<-read.csv("/Users/raveena/Desktop/Classroom - R/Marketing Analytics/data/kalepops_data.csv")
+
+
+summary(DF)
+
+range(DF$price)
+range <- max(DF$price) - min(DF$price)
+print(range)
+
+
+
+
+```
+
+Question 3
+```{r}
+library(ggplot2)
+
+ggplot( data = DF,
+        aes( x= price,
+             y= sales)) +
+  geom_point( color = 'purple') +
+  geom_smooth(method = 'lm', se = FALSE, color = 'red')
+
+
+```
+
+
+Question 4
+```{r}
+lm1<- lm(log(sales) ~ log(price) + day, data = DF)
+summary(lm1)
+coef(lm1)["log(price)"]
+
+
+```
+
+
+Question 5
+```{r}
+
+coefficient_price <- coef(lm1)["log(price)"]
+
+delta_p <- 0.02
+delta_q <- (coefficient_price * delta_p)*100
+
+print(delta_q)
+
+
+
+```
+
+
+Q7 and Q8
+
+```{r}
+
+
+kale_profit <- function(price, day, lm1, retail_margin, marginal_cost) {
+logQ <- predict(lm1, newdata = data.frame(day = day, price = price))
+Q <- exp(logQ + sigma(lm1) ^ 2/2)
+revenue <- Q * price * (1 - retail_margin) 
+cost <- Q * marginal_cost
+profit <- revenue - cost
+return(list(Q = Q, profit = profit))
+}
+
+price <- 1.5
+day <- 1095
+retail_margin <- 0.15
+marginal_cost <- 0.5
+
+profit_result <- kale_profit(price, day, lm1, retail_margin, marginal_cost)
+profit_result
+
+
+```
+
+
+
+Q9 and Q10
+
+```{r}
+
+library(ggplot2)
+
+
+
+results <- data.frame( prices = seq(from = .5, 
+                to = 3,
+                by = .01))
+  
+  
+results$pft <- rep(0, times = nrow(results)) 
+
+for (i in 1:nrow(results)) {
+  results$pft[i] <- kale_profit(price = results$prices[i], 
+                     day = 1095, 
+                     lm1 = lm1, 
+                     retail_margin = retail_margin, 
+                     marginal_cost = marginal_cost)$profit
+}
+
+
+
+
+retail_margin <- 0.15
+marginal_cost <- 0.5
+  
+
+
+plot_data <- data.frame(price = results$prices, profit = results$pft)
+
+ggplot(plot_data, aes(x = price, y = profit)) +
+geom_line() +
+labs(x = "Price", y = "Profit")
+
+optimal_price <- price[which.max(results$pft)] 
+
+
+maxpft_index <- which.max(results$pft) 
+max_profit <- results$pft[maxpft_index]
+max_profit
+
+```
+
+
+
+

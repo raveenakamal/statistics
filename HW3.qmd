@@ -1,0 +1,332 @@
+---
+title: "Homework #3: Causality"
+author: "Raveena Kamal"
+format: pdf
+editor: visual
+---
+
+# Overview & instructions
+
+For homework, you will first analyze a panel dataset from a new product category. Then you will evaluate the effectiveness of an online display ad campaign.
+
+## Instructions
+
+1.  Your task is to fill in all R code blocks that currently contain "#TBD" comments. Similarly, insert text responses wherever you see \*TBD\* in the markdown file.
+2.  PLEASE ADD YOUR NAME TO THE AUTHOR LINE ABOVE
+
+## Task 1 description
+
+Your task is to construct a linear model of demand for a common packaged good (a laundry detergent). The effect of interest is the average effect of `price` on `sales` (units sold).
+
+You have access to scanner data across a set of stores of a retail chain in the Chicago metro region. The data are in the file `detergent_data.csv` [here](https://www.dropbox.com/scl/fi/bku48g9bp7ccnpalk2nru/detergent_data.csv?rlkey=uvl43elzdvaej56xe1pvmsieg&dl=0). The variables in the data set are:
+
+|             |                                                     |
+|:------------|:----------------------------------------------------|
+| `store`     | Store id number                                     |
+| `week`      | Week number                                         |
+| `promoflag` | = 1 if any product in the category was on promotion |
+| `sales`     | Tide 128oz laundry detergent: unit sales            |
+| `price`     | Tide 128oz laundry detergent: price (\$)            |
+
+## 1) Data Description
+
+### 1.1) Read in the data
+
+Read in the data from the csv file, and store to dataframe `DF1`.
+
+Also, report (print):
+
+1)  the number of unique stores in the dataset, and
+2)  number of unique time periods in the dataset
+
+*Hint: the functions `unique()` and `length()` can be useful in calculating the number of unique observations*
+
+```{r code_1.1}
+DF1<-read.csv("/Users/raveena/Desktop/Classroom - R/Marketing Analytics/data/detergent_data.csv")
+
+length(unique(DF1$store))
+length(unique(DF1$week))
+
+
+```
+
+#### What is the total number of observations?
+
+14744
+
+#### Is the data a balanced or unbalanced panel? Why?
+
+The data is unbalanced panel. This is beacaue each store should have same number of time periods. If we group the data by store and count the weeks for each store it should be same for all the stores for the data to be a balanced panel.
+
+#### Interpret the mean value of the variable `promoflag`
+
+Mean is 0.81 which means that 81% of the panel dataset have used promotions.
+
+### 1.2) Scatterplot of `sales` vs. `price`
+
+Generate a scatterplot of sales vs. price. Add a linear regression line.
+
+```{r code_1.2}
+ggplot(data = DF1, aes(x = price, y = sales)) +
+  geom_point(alpha = .8, size = 2)
+```
+
+#### Comment on the distribution of sales and prices. What patterns do you notice?
+
+The sales is high for some price points like 7 and then falls. It shows a fluctuation where sales is increasing with increase in price (between \$7-\$8) and then decreasing as price further increases.
+
+#### Is the (sign of the) fitted regression line slope as expected? Why or why not?
+
+Yes. The sign is -ve which is expected from the model. It does show that as price increases unit sold decreases.
+
+## 2) Regresion models where DV = sales
+
+### 2.1) regressors: `price`, `promoflag`
+
+Use `lm()` to estimate a model of sales with regressors: `price`, `promoflag`. Use `summary()` to summarize the results.
+
+```{r code_2.1}
+summary( lm(sales ~ price + promoflag, data=DF1))
+```
+
+### 2.2) regressors: `price`, `promoflag`, time (week) fixed effects
+
+Use `lm()` to estimate a model of sales with regressors: `price`, `promoflag` and time (week) fixed effects. Use `summary()` to summarize the results.
+
+```{r code_2.2}
+summary( lm(sales ~ price + promoflag + week, data=DF1))
+
+
+summary( lm(sales ~ price + promoflag + factor(week), data=DF1))
+
+```
+
+### 2.3) regressors: `price`, `promoflag`, store fixed effects
+
+Use `feols()` to estimate a store fixed-effects model of sales with regressors: `price`, `promoflag`. Use `summary()` to summarize the results.
+
+```{r code_2.3}
+library(fixest)
+summary(feols(sales ~ price + promoflag | store , data = DF1))
+```
+
+### 2.4) regressors: `price`, `promoflag`, time (week) fixed effects, store fixed effects
+
+Use `feols()` to estimate a store fixed-effects model of sales with regressors: `price`, `promoflag`, and time (week) fixed effects. Use `summary()` to summarize the results.
+
+```{r code_2.4}
+summary(feols(sales ~ price + promoflag | store + week , data = DF1))
+```
+
+### Discussion questions
+
+#### What patterns do you notice? Adding which controls (time trends, time fixed effects, store fixed effects) leads to the greatest change in the price and promotion parameter estimates?
+
+Variety of patterns are noticed. On adding time fixed effects the value of price and promotion coefficient estimate changes and standard error also changes a little bit nit much though whereas on just adding time trend we can see that the effect of "week" is not significant.
+
+However on adding store fixed effects through feols() we observe the greatest change in price estimate and for the promotion estimate it's the same as we get for other models (except when we consider fixed effects of both week and store).
+
+When we take away the fixed effect of both week and store together then we see the lowest change in promotion estimate, however since the p value of the promotion store is high this indicates that relationship is not statistically significant and is out of randomness. Additionally the standard error has increased for price estimate when both the fixed effects are removed compared to when only store fixed effect is considered.
+
+#### What does this suggest about sources of omitted variable bias? E.g., are omitted factors more likely associated with cross-sectional units (stores) or time periods?
+
+Omitted factors are likely associated with stores because when the fixed effect of stores was taken away we observed a larger decrease in sales of units when price increases by 1 unit.
+
+#### Which estimate would you report as your "best" estimate of the demand response to price? Why?
+
+store. Because it shows greatest decrease in units with price increase.
+
+# Task 2
+
+Your second task is to evaluate the effectiveness of an online display ad campaign.
+
+You have data from an experiment designed to measure the effectiveness of an online display advertising campaign. The experiment involves randomly assigning Internet users to a test or a control group based on cookies that uniquely identify each user visiting a site where the ad exchange (Rocket Fuel) can place an ad. Users in the test group see an ad for a newly released handbag by TaskaBella, Rocket Fuel's client. Users in the control group are shown a public service announcement that is unrelated to the advertised product. Based on the unique IDs, Rocket Fuel is able to track which users eventually purchased a handbag from TaskaBella, allowing the analyst to discern the effectiveness of the campaign.
+
+Each row in the CSV file data set `rocketfuel_data.csv` [here](https://www.dropbox.com/scl/fi/scwlz9rvi72ks5r7vnypr/rocketfuel_data.csv?rlkey=cge8e27vr1kp1ic2v1sriuyaq&dl=0) represents a uniquely identified user in the ad campaign. For each user, the following six variables are provided:
+
+|                  |                                                                                      |
+|:---------------|:-------------------------------------------------------|
+| `user_id`        | Unique identifier of the user                                                        |
+| `test`           | 1 if the user was exposed to the real ad                                             |
+|                  | 0 if the user was in the control group and was shown a PSA                           |
+| `converted`      | 1 if the user made a purchase, 0 otherwise                                           |
+| `tot_impr`       | Total number of ad impressions the user encountered (treat=ad, control=PSA)          |
+| `mode_impr_day`  | Day of the week on which the user encountered the most impressions (1=Mon,...,7=Sun) |
+| `mode_impr_hour` | Hour of the day (0-23) in which the user encountered the most impressions            |
+
+For these data, `converted` is the outcome, and `test` is the treatment indicator. `user_id` uniquely identifies users (and rows). The remaining variables provide additional information observed during the experiment.
+
+The client firm TaskaBella estimates that a conversion generates approximately \$40 in incremental profit for the firm. The cost to serve ads in the experiment was \$9 CPM (\$9 per 1000 impressions).
+
+### 3) Exploratory analysis
+
+Read the data into R and perform some exploratory analysis. Show your work in the R chunks below, and provide text answers following the R chunk.
+
+#### 3.1) How many users are in the test and control conditions?
+
+```{r}
+RFD <- read.csv("~/Desktop/Classroom - R/Marketing Analytics/data/rocketfuel_data.csv")
+sum(RFD$test)
+sum(RFD$test == 0)
+
+```
+
+Users in test = 564577
+
+Users in control = 23524
+
+#### 3.2) Conversion rates
+
+The conversion rate for a group is the fraction of users that purchase (`converted`==1) in that group.
+
+What is the conversion rate (in percentage) for the -- a) test group and b) control group?
+
+```{r}
+mean(RFD[RFD$test == 0, ]$converted)
+mean(RFD[RFD$test == 1, ]$converted)
+
+     
+```
+
+a\) test group = 2.55%
+
+b\) control group = 1.8%
+
+### 4) Randomization checks
+
+Verify that Rocketfuel implemented the randomization correctly by examining whether the distributions of the variable `tot_impr` for the test and control groups are the same. If the average number of impressions that users see in each group is different, then the differences in their response rate can be (potentially) attributed to this instead of the ads that they see. We can examine the distribution of `tot_impr`for the two groups in three ways: (simple) mean comparison, distribution (histogram) comparison, and formal difference in means t-tests.
+
+#### 4.1) Mean comparison
+
+Using the describe command, summarize `tot_impr` for two the groups of users (in test and control conditions). What is the mean of this variable each of these groups? Are the means similar?
+
+```{r}
+summary(RFD$tot_impr[RFD$test == 1], na.rm = T)
+summary(RFD$tot_impr[RFD$test == 0], na.rm = T)
+```
+
+*Yes, the means are similar*
+
+#### 4.2) Distribution (histogram) comparison
+
+To further understand how the distribution of `tot_impr` looks for the two groups, plot the histograms of `tot_impr` for each of the two groups (test and control). Do the two histograms look similar?
+
+```{r}
+hist(RFD$tot_impr[RFD$test == 1])
+hist(RFD$tot_impr[RFD$test == 0])
+
+
+  
+
+
+```
+
+*No the histograms don't look similar. The frequency of tot_impr shown to some of test users is way higher than shown to some of control group*
+
+#### 4.3) Formal difference in means t-test
+
+Finally, conduct a t-test to examine whether the differences (if any) in `tot_impr` across the two groups is statistically significant?
+
+```{r}
+t.test( tot_impr ~ test, data = RFD)
+```
+
+Since P value is very high at 82% hence the relationship is not statistically significant.
+
+Based on the above analyses, can you conclude that the randomization was done correctly?\
+The mean and the p-value suggestions that the difference between control group and test group is not statistically significant and that the randomization was done correctly.
+
+### 5) Average treatment effect (ATE) estimation & application
+
+#### 5.2) Compute the treatment effect "by hand"
+
+Calculate the ATE as the difference in mean outcomes across the treatment and control conditions. Report your ATE estimate as a percentage. Was the campaign effective?
+
+```{r}
+ATE<-mean(RFD[RFD$test==1, "converted"]) -
+  mean(RFD[RFD$test==0, "converted"])
+```
+
+0.77%
+
+#### 5.3) Compute the treatment effect by regression
+
+Use a regression to estimate the treatment effect (ATE). Does your estimate match the "by hand" calculation? What is the standard error of the ATE?
+
+```{r}
+summary(lm(converted ~ test, data = RFD))
+```
+
+*Yes, the estimate matches the one by hand. The standard error is 0.0010, very low.*
+
+### 6) Return on investment (ROI)
+
+**We did not do this in class. But for extra points, give it a try.**
+
+#### 6.1) Campaign incremental conversions
+
+For the users in the test group, how many extra conversions can be attributed to the ad campaign? In other words, what is the incremental number of conversions from the ad campaign?
+
+Hint: the ATE is incremental (causal) effect of the campaign on conversion for each user. The total effect of the campaign on conversion is the number of users in the treatment condition times the ATE.
+
+```{r}
+incremental_conv<-(sum(RFD$test == 1) * ATE)
+
+```
+
+4342
+
+#### 6.2) Campaign incremental profit
+
+Recall from the overview above that TaskaBella gets on average \$40 for each conversion.
+
+How much more money did TaskaBella make by running the campaign (excluding advertising costs)? In other words, what is the incremental profit from the ad campaign?
+
+```{r}
+incremental_prof<-incremental_conv* c(40)
+
+```
+
+*\$173719*
+
+#### 6.3) Campaign cost
+
+What was the cost of the campaign?
+
+Hint: the relevant number of impressions is contained in the `tot_impr` variable.
+
+```{r}
+total_impressions<-sum(RFD$tot_impr)
+campaign_cost<- total_impressions*c(0.009)
+
+```
+
+\$131375
+
+#### 6.4) ROI calculation
+
+Calculate the ROI of the campaign. Percentage ROI is defined as: 100\*(incremental_profit - campaign_cost)/campaign_cost.
+
+```{r}
+result <- incremental_prof - campaign_cost
+ROI<- result/campaign_cost
+print(ROI)
+```
+
+32% is the ROI
+
+#### 6.5) Control group opportunity cost
+
+If the ad campaign had been shown to the control group as well, how much additional profit would have been generated? Explain your answer.
+
+```{r}
+
+incremental_conv_control<-(sum(RFD$test == 0) * ATE)
+incremental_prof_control<-incremental_conv_control*c(40)
+print(incremental_prof_control)
+
+
+```
+
+Incremental profit generated would be \$7238. \
+If the control group is given the same treatment the effect would be same as that observed for test group which is because if Average treatment effect. Hence we can apply the same ATE for the control group and find incremental profit by times \$40.
